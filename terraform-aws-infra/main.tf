@@ -1,36 +1,52 @@
 provider "aws" {
-  region = var.aws_region
+  region = "us-east-1"
 }
 
 # -----------------------------
 # VPC
 # -----------------------------
-resource "aws_vpc" "main" {
+resource "aws_vpc" "research_vpc" {
 
-  cidr_block = var.vpc_cidr
+  cidr_block = "10.0.0.0/16"
 
   tags = {
-    Name = "${var.project_name}-vpc"
+    Name = "research-vpc"
   }
+}
+
+# -----------------------------
+# Availability Zones List
+# -----------------------------
+locals {
+
+  azs = [
+    "us-east-1a",
+    "us-east-1b",
+    "us-east-1c",
+    "us-east-1d",
+    "us-east-1e",
+    "us-east-1f"
+  ]
+
 }
 
 # -----------------------------
 # Public Subnets
 # -----------------------------
-resource "aws_subnet" "public" {
+resource "aws_subnet" "public_subnets" {
 
   count = 6
 
-  vpc_id = aws_vpc.main.id
+  vpc_id = aws_vpc.research_vpc.id
 
-  cidr_block = cidrsubnet(var.vpc_cidr, 8, count.index)
+  cidr_block = cidrsubnet("10.0.0.0/16", 8, count.index)
 
-  availability_zone = var.availability_zone
+  availability_zone = local.azs[count.index]
 
   map_public_ip_on_launch = true
 
   tags = {
-    Name = "${var.project_name}-public-subnet-${count.index+1}"
+    Name = "public-subnet-${count.index + 1}"
   }
 }
 
@@ -39,10 +55,10 @@ resource "aws_subnet" "public" {
 # -----------------------------
 resource "aws_internet_gateway" "igw" {
 
-  vpc_id = aws_vpc.main.id
+  vpc_id = aws_vpc.research_vpc.id
 
   tags = {
-    Name = "${var.project_name}-igw"
+    Name = "research-igw"
   }
 }
 
@@ -51,15 +67,15 @@ resource "aws_internet_gateway" "igw" {
 # -----------------------------
 resource "aws_route_table" "public_rt" {
 
-  vpc_id = aws_vpc.main.id
+  vpc_id = aws_vpc.research_vpc.id
 
   tags = {
-    Name = "${var.project_name}-route-table"
+    Name = "public-route-table"
   }
 }
 
 # Internet Route
-resource "aws_route" "default_route" {
+resource "aws_route" "internet_access" {
 
   route_table_id = aws_route_table.public_rt.id
 
@@ -68,12 +84,14 @@ resource "aws_route" "default_route" {
   gateway_id = aws_internet_gateway.igw.id
 }
 
-# Route Table Association
+# -----------------------------
+# Route Table Associations
+# -----------------------------
 resource "aws_route_table_association" "public_assoc" {
 
   count = 6
 
-  subnet_id = aws_subnet.public[count.index].id
+  subnet_id = aws_subnet.public_subnets[count.index].id
 
   route_table_id = aws_route_table.public_rt.id
 }
@@ -81,11 +99,11 @@ resource "aws_route_table_association" "public_assoc" {
 # -----------------------------
 # Security Group
 # -----------------------------
-resource "aws_security_group" "web_sg" {
+resource "aws_security_group" "research_sg" {
 
-  name = "${var.project_name}-sg"
+  name = "research-sg"
 
-  vpc_id = aws_vpc.main.id
+  vpc_id = aws_vpc.research_vpc.id
 
   ingress {
 
@@ -96,7 +114,6 @@ resource "aws_security_group" "web_sg" {
     protocol = "tcp"
 
     cidr_blocks = ["0.0.0.0/0"]
-
   }
 
   ingress {
@@ -108,7 +125,6 @@ resource "aws_security_group" "web_sg" {
     protocol = "tcp"
 
     cidr_blocks = ["0.0.0.0/0"]
-
   }
 
   egress {
@@ -118,11 +134,10 @@ resource "aws_security_group" "web_sg" {
     protocol = "-1"
 
     cidr_blocks = ["0.0.0.0/0"]
-
   }
 
   tags = {
-    Name = "${var.project_name}-security-group"
+    Name = "research-sg"
   }
 }
 
@@ -144,31 +159,31 @@ data "aws_ami" "amazon_linux" {
 # -----------------------------
 # EC2 Instance
 # -----------------------------
-resource "aws_instance" "web" {
+resource "aws_instance" "research_instance" {
 
   ami = data.aws_ami.amazon_linux.id
 
-  instance_type = var.instance_type
+  instance_type = "t2.micro"
 
-  subnet_id = aws_subnet.public[0].id
+  subnet_id = aws_subnet.public_subnets[0].id
 
   vpc_security_group_ids = [
-    aws_security_group.web_sg.id
+    aws_security_group.research_sg.id
   ]
 
   tags = {
-    Name = "${var.project_name}-ec2"
+    Name = "research-ec2"
   }
 }
 
 # -----------------------------
 # S3 Bucket
 # -----------------------------
-resource "aws_s3_bucket" "bucket" {
+resource "aws_s3_bucket" "research_bucket" {
 
-  bucket = var.bucket_name
+  bucket = "terraform-research-bucket-123456789"
 
   tags = {
-    Name = "${var.project_name}-bucket"
+    Name = "research-bucket"
   }
 }
