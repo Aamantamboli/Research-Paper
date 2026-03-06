@@ -1,21 +1,113 @@
-module "vpc" {
-  source = "./modules/vpc"
+# ------------------
+# VPC
+# ------------------
+resource "aws_vpc" "research_vpc" {
 
-  vpc_cidr       = var.vpc_cidr
-  public_subnets = var.public_subnets
+  cidr_block = var.vpc_cidr
+
+  tags = {
+    Name = "research-vpc"
+  }
 }
 
-module "ec2" {
-  source = "./modules/ec2"
+# ------------------
+# Public Subnets
+# ------------------
+resource "aws_subnet" "public_subnets" {
 
-  vpc_id        = module.vpc.vpc_id
-  subnet_id     = module.vpc.public_subnet_ids[0]
-  instance_type = var.instance_type
-  security_group_id = module.vpc.security_group_id
+  count = 6
+
+  vpc_id = aws_vpc.research_vpc.id
+  cidr_block = var.subnet_cidrs[count.index]
+
+  availability_zone = var.availability_zone
+
+  map_public_ip_on_launch = true
+
+  tags = {
+    Name = "public-subnet-${count.index+1}"
+  }
 }
 
-module "s3" {
-  source = "./modules/s3"
+# ------------------
+# Internet Gateway
+# ------------------
+resource "aws_internet_gateway" "igw" {
 
-  bucket_name = var.bucket_name
+  vpc_id = aws_vpc.research_vpc.id
+
+  tags = {
+    Name = "research-igw"
+  }
+}
+
+# ------------------
+# Route Table
+# ------------------
+resource "aws_route_table" "public_rt" {
+
+  vpc_id = aws_vpc.research_vpc.id
+
+  tags = {
+    Name = "public-route-table"
+  }
+}
+
+resource "aws_route" "internet_route" {
+
+  route_table_id = aws_route_table.public_rt.id
+
+  destination_cidr_block = "0.0.0.0/0"
+
+  gateway_id = aws_internet_gateway.igw.id
+}
+
+# ------------------
+# Route Table Association
+# ------------------
+resource "aws_route_table_association" "subnet_assoc" {
+
+  count = 6
+
+  subnet_id = aws_subnet.public_subnets[count.index].id
+
+  route_table_id = aws_route_table.public_rt.id
+}
+
+# ------------------
+# Security Group
+# ------------------
+resource "aws_security_group" "research_sg" {
+
+  name = "research-security-group"
+
+  vpc_id = aws_vpc.research_vpc.id
+
+  ingress {
+
+    from_port = 22
+    to_port = 22
+    protocol = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+
+  }
+
+  ingress {
+
+    from_port = 80
+    to_port = 80
+    protocol = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+
+  }
+
+  egress {
+
+    from_port = 0
+    to_port = 0
+    protocol = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+
+  }
+
 }
