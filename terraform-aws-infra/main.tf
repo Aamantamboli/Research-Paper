@@ -15,7 +15,7 @@ resource "aws_vpc" "research_vpc" {
 }
 
 # -----------------------------
-# Availability Zones List
+# Availability Zones
 # -----------------------------
 locals {
   azs = [
@@ -99,8 +99,7 @@ resource "aws_route_table_association" "public_assoc" {
 # -----------------------------
 resource "aws_security_group" "research_sg" {
 
-  name = "${var.project_name}-sg"
-
+  name   = "${var.project_name}-sg"
   vpc_id = aws_vpc.research_vpc.id
 
   ingress {
@@ -142,12 +141,16 @@ resource "aws_security_group" "research_sg" {
 data "aws_ami" "amazon_linux" {
 
   most_recent = true
-
-  owners = ["amazon"]
+  owners      = ["amazon"]
 
   filter {
     name   = "name"
     values = ["amzn2-ami-hvm-*"]
+  }
+
+  filter {
+    name   = "architecture"
+    values = ["x86_64"]
   }
 }
 
@@ -156,8 +159,7 @@ data "aws_ami" "amazon_linux" {
 # -----------------------------
 resource "aws_instance" "research_instance" {
 
-  ami = data.aws_ami.amazon_linux.id
-
+  ami           = data.aws_ami.amazon_linux.id
   instance_type = var.instance_type
 
   subnet_id = aws_subnet.public_subnets[0].id
