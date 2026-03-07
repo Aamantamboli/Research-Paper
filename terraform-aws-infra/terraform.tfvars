@@ -6,4 +6,4 @@
 bucket_name = "terraform-research-bucket-99224411"
 
 # Set to 1 for baseline trials, change to 3 for scalability test
-instance_count = 1
+instance_count = 3
