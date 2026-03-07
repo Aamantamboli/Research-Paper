@@ -1,5 +1,5 @@
 provider "aws" {
-  region = "us-east-1"
+  region = var.aws_region
 }
 
 # -----------------------------
@@ -7,10 +7,10 @@ provider "aws" {
 # -----------------------------
 resource "aws_vpc" "research_vpc" {
 
-  cidr_block = "10.0.0.0/16"
+  cidr_block = var.vpc_cidr
 
   tags = {
-    Name = "research-vpc"
+    Name = "${var.project_name}-vpc"
   }
 }
 
@@ -18,7 +18,6 @@ resource "aws_vpc" "research_vpc" {
 # Availability Zones List
 # -----------------------------
 locals {
-
   azs = [
     "us-east-1a",
     "us-east-1b",
@@ -27,7 +26,6 @@ locals {
     "us-east-1e",
     "us-east-1f"
   ]
-
 }
 
 # -----------------------------
@@ -39,14 +37,14 @@ resource "aws_subnet" "public_subnets" {
 
   vpc_id = aws_vpc.research_vpc.id
 
-  cidr_block = cidrsubnet("10.0.0.0/16", 8, count.index)
+  cidr_block = cidrsubnet(var.vpc_cidr, 8, count.index)
 
   availability_zone = local.azs[count.index]
 
   map_public_ip_on_launch = true
 
   tags = {
-    Name = "public-subnet-${count.index + 1}"
+    Name = "${var.project_name}-public-subnet-${count.index + 1}"
   }
 }
 
@@ -58,7 +56,7 @@ resource "aws_internet_gateway" "igw" {
   vpc_id = aws_vpc.research_vpc.id
 
   tags = {
-    Name = "research-igw"
+    Name = "${var.project_name}-igw"
   }
 }
 
@@ -70,7 +68,7 @@ resource "aws_route_table" "public_rt" {
   vpc_id = aws_vpc.research_vpc.id
 
   tags = {
-    Name = "public-route-table"
+    Name = "${var.project_name}-public-rt"
   }
 }
 
@@ -101,43 +99,40 @@ resource "aws_route_table_association" "public_assoc" {
 # -----------------------------
 resource "aws_security_group" "research_sg" {
 
-  name = "research-sg"
+  name = "${var.project_name}-sg"
 
   vpc_id = aws_vpc.research_vpc.id
 
   ingress {
-
     description = "SSH"
 
     from_port = 22
-    to_port = 22
-    protocol = "tcp"
+    to_port   = 22
+    protocol  = "tcp"
 
     cidr_blocks = ["0.0.0.0/0"]
   }
 
   ingress {
-
     description = "HTTP"
 
     from_port = 80
-    to_port = 80
-    protocol = "tcp"
+    to_port   = 80
+    protocol  = "tcp"
 
     cidr_blocks = ["0.0.0.0/0"]
   }
 
   egress {
-
     from_port = 0
-    to_port = 0
-    protocol = "-1"
+    to_port   = 0
+    protocol  = "-1"
 
     cidr_blocks = ["0.0.0.0/0"]
   }
 
   tags = {
-    Name = "research-sg"
+    Name = "${var.project_name}-sg"
   }
 }
 
@@ -151,7 +146,7 @@ data "aws_ami" "amazon_linux" {
   owners = ["amazon"]
 
   filter {
-    name = "name"
+    name   = "name"
     values = ["amzn2-ami-hvm-*"]
   }
 }
@@ -163,7 +158,7 @@ resource "aws_instance" "research_instance" {
 
   ami = data.aws_ami.amazon_linux.id
 
-  instance_type = "t2.micro"
+  instance_type = var.instance_type
 
   subnet_id = aws_subnet.public_subnets[0].id
 
@@ -172,7 +167,7 @@ resource "aws_instance" "research_instance" {
   ]
 
   tags = {
-    Name = "research-ec2"
+    Name = "${var.project_name}-ec2"
   }
 }
 
@@ -181,9 +176,9 @@ resource "aws_instance" "research_instance" {
 # -----------------------------
 resource "aws_s3_bucket" "research_bucket" {
 
-  bucket = "terraform-research-bucket-123456789"
+  bucket = var.bucket_name
 
   tags = {
-    Name = "research-bucket"
+    Name = "${var.project_name}-bucket"
   }
 }
